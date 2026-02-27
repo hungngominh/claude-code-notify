@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicegui/tauri-v2-schema/main/capabilities.json",
+  "identifier": "default",
+  "description": "Default capabilities for Claude Notify",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "dialog:default",
+    "dialog:allow-open",
+    "shell:default",
+    "shell:allow-execute",
+    "shell:allow-open"
+  ]
+}

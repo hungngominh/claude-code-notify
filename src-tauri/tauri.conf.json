@@ -1,0 +1,44 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicegui/tauri-v2-schema/main/tauri.conf.json",
+  "productName": "Claude Notify",
+  "version": "2.0.0",
+  "identifier": "com.claude.notify",
+  "build": {
+    "frontendDist": "../frontend",
+    "beforeDevCommand": "",
+    "beforeBuildCommand": ""
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "Claude Code — Notifications",
+        "width": 360,
+        "height": 640,
+        "resizable": false,
+        "visible": false,
+        "skipTaskbar": true,
+        "decorations": true,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/icon.png",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  }
+}

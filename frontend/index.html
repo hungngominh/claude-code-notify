@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Notify</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #0f0f11;
+      --surface:      #18181b;
+      --border:       #27272a;
+      --border-hover: #3f3f46;
+      --text:         #fafafa;
+      --muted:        #a1a1aa;
+      --accent:       #6366f1;
+      --accent-dim:   #4f52c7;
+      --success:      #22c55e;
+      --danger:       #ef4444;
+      --radius:       12px;
+      --radius-sm:    8px;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      width: 360px;
+      padding: 18px 18px 14px;
+      user-select: none;
+      -webkit-app-region: no-drag;
+      overflow: hidden;
+    }
+
+    /* ── Header ────────────────────────────────────── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .header-left { display: flex; align-items: center; gap: 10px; }
+    .logo {
+      width: 30px; height: 30px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(99,102,241,0.35);
+    }
+    .logo svg { width: 15px; height: 15px; }
+    .title    { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
+    .subtitle { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .status-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 6px var(--success);
+      transition: background .3s, box-shadow .3s;
+    }
+    .status-dot.off { background: #3f3f46; box-shadow: none; }
+
+    /* ── Card ──────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      margin-bottom: 8px;
+      transition: border-color .2s;
+    }
+    .card:hover { border-color: var(--border-hover); }
+
+    /* ── Section label ─────────────────────────────── */
+    .sec-label {
+      font-size: 10px; font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      margin-bottom: 8px;
+    }
+
+    /* ── Toggle row ────────────────────────────────── */
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .row-label { font-size: 13px; font-weight: 500; }
+    .row-desc  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    .switch { position: relative; width: 42px; height: 24px; flex-shrink: 0; cursor: pointer; }
+    .switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .track {
+      position: absolute; inset: 0;
+      background: #27272a; border-radius: 24px;
+      border: 1px solid var(--border);
+      transition: background .25s ease;
+    }
+    .thumb {
+      position: absolute;
+      width: 18px; height: 18px; top: 2px; left: 2px;
+      background: var(--muted); border-radius: 50%;
+      box-shadow: 0 1px 3px rgba(0,0,0,.4);
+      transition: transform .25s ease, background .25s ease;
+    }
+    .switch input:checked ~ .track { background: var(--accent); border-color: var(--accent-dim); }
+    .switch input:checked ~ .thumb { transform: translateX(18px); background: #fff; }
+    .switch:focus-within .track { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    /* ── Input row ─────────────────────────────────── */
+    .input-row { display: flex; gap: 6px; overflow: hidden; }
+
+    .field {
+      flex: 1;
+      min-width: 0;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 7px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      font-family: 'Inter', monospace;
+      outline: none;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      transition: border-color .2s, color .2s;
+    }
+    .field:not([readonly]):focus { border-color: var(--accent); color: var(--text); }
+    .field[readonly] { cursor: default; }
+    .field.editable  { color: var(--text); cursor: text; }
+
+    /* ── Icon buttons ──────────────────────────────── */
+    .btn-icon {
+      display: flex; align-items: center; gap: 4px;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 0 8px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 11px; font-weight: 500;
+      font-family: 'Inter', sans-serif;
+      white-space: nowrap;
+      height: 32px;
+      transition: background .15s, border-color .15s;
+      flex-shrink: 0;
+    }
+    .btn-icon:hover { background: #27272a; border-color: var(--border-hover); }
+    .btn-icon:active { transform: scale(0.97); }
+    .btn-icon:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+    .btn-icon svg { width: 12px; height: 12px; opacity: .75; }
+
+    /* ── Save button ───────────────────────────────── */
+    .btn-save {
+      width: 100%; height: 36px;
+      background: var(--accent); color: #fff;
+      border: none; border-radius: var(--radius-sm);
+      font-size: 13px; font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer; letter-spacing: -.01em;
+      transition: background .15s, transform .1s, opacity .15s;
+    }
+    .btn-save:hover  { background: var(--accent-dim); }
+    .btn-save:active { transform: scale(.98); }
+    .btn-save:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    /* ── Status bar ────────────────────────────────── */
+    .status-bar {
+      display: flex; align-items: center; justify-content: center;
+      gap: 5px; margin-top: 8px; height: 15px;
+      font-size: 11px; color: var(--muted);
+      opacity: 0; transition: opacity .3s;
+    }
+    .status-bar.visible { opacity: 1; }
+    .status-bar.ok  { color: var(--success); }
+    .status-bar.err { color: var(--danger); }
+    .status-bar.info { color: #60a5fa; }
+    .status-bar svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+      </div>
+      <div>
+        <div class="title">Claude Notify</div>
+        <div class="subtitle">Notification settings</div>
+      </div>
+    </div>
+    <div class="status-dot" id="statusDot"></div>
+  </div>
+
+  <!-- Toggle -->
+  <div class="card">
+    <div class="row">
+      <div>
+        <div class="row-label">Enable notifications</div>
+        <div class="row-desc">Sound + phone push via ntfy</div>
+      </div>
+      <label class="switch" title="Toggle notifications">
+        <input type="checkbox" id="toggleInput" aria-label="Enable notifications">
+        <span class="track"></span>
+        <span class="thumb"></span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Auto-start -->
+  <div class="card">
+    <div class="row">
+      <div>
+        <div class="row-label">Start with Windows</div>
+        <div class="row-desc">Auto-run app on boot</div>
+      </div>
+      <label class="switch" title="Toggle auto-start">
+        <input type="checkbox" id="autoStartInput" aria-label="Start with Windows">
+        <span class="track"></span>
+        <span class="thumb"></span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Sound — Stop -->
+  <div class="card">
+    <div class="sec-label">Sound — task finished (Stop)</div>
+    <div class="input-row">
+      <input class="field" type="text" id="soundPath"
+             placeholder="C:\Windows\Media\notify.wav"
+             readonly aria-label="Sound file path">
+      <button class="btn-icon" id="browseBtn" aria-label="Browse WAV file">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+        </svg>
+        Browse
+      </button>
+      <button class="btn-icon" id="testSoundBtn" aria-label="Test sound">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+        Test
+      </button>
+    </div>
+  </div>
+
+  <!-- Sound — AskUserQuestion -->
+  <div class="card">
+    <div class="sec-label">Sound — asking question (AskUserQuestion)</div>
+    <div class="input-row">
+      <input class="field" type="text" id="askSoundPath"
+             placeholder="C:\Windows\Media\Ring01.wav"
+             readonly aria-label="Ask sound file path">
+      <button class="btn-icon" id="browseAskBtn" aria-label="Browse WAV file for ask">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+        </svg>
+        Browse
+      </button>
+      <button class="btn-icon" id="testAskSoundBtn" aria-label="Test ask sound">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+        Test
+      </button>
+    </div>
+  </div>
+
+  <!-- ntfy -->
+  <div class="card">
+    <div class="sec-label">ntfy topic (phone notifications)</div>
+    <div class="input-row">
+      <input class="field editable" type="text" id="ntfyTopic"
+             placeholder="e.g. ClaudeCodeHungNM2026"
+             aria-label="ntfy topic">
+      <button class="btn-icon" id="testNtfyBtn" aria-label="Test ntfy notification">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.62 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.6a16 16 0 0 0 5.49 5.49l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+        </svg>
+        Test
+      </button>
+    </div>
+  </div>
+
+  <!-- Save -->
+  <button class="btn-save" id="saveBtn">Save Settings</button>
+
+  <!-- Status -->
+  <div class="status-bar" id="statusBar" role="status" aria-live="polite">
+    <svg id="statusIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></svg>
+    <span id="statusText"></span>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
