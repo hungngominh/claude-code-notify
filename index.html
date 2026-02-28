@@ -131,24 +131,23 @@
 
     /* ── Icon buttons ──────────────────────────────── */
     .btn-icon {
-      display: flex; align-items: center; gap: 5px;
+      display: flex; align-items: center; justify-content: center;
       background: var(--surface);
       color: var(--text);
       border: 1px solid var(--border);
-      padding: 0 10px;
       border-radius: var(--radius-sm);
       cursor: pointer;
       font-size: 11px; font-weight: 500;
       font-family: 'Inter', sans-serif;
       white-space: nowrap;
-      height: 32px;
+      width: 32px; height: 32px;
       transition: background .15s, border-color .15s;
       flex-shrink: 0;
     }
     .btn-icon:hover { background: #27272a; border-color: var(--border-hover); }
     .btn-icon:active { transform: scale(0.97); }
     .btn-icon:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
-    .btn-icon svg { width: 12px; height: 12px; opacity: .75; }
+    .btn-icon svg { width: 14px; height: 14px; opacity: .75; }
 
     /* ── Save button ───────────────────────────────── */
     .btn-save {
@@ -253,17 +252,15 @@
       <input class="field" type="text" id="soundPath"
              placeholder="C:\Windows\Media\notify.wav"
              readonly aria-label="Sound file path">
-      <button class="btn-icon" id="browseBtn" aria-label="Browse WAV file">
+      <button class="btn-icon" id="browseBtn" title="Browse WAV file" aria-label="Browse WAV file">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
         </svg>
-        Browse
       </button>
-      <button class="btn-icon" id="testSoundBtn" aria-label="Test sound">
+      <button class="btn-icon" id="testSoundBtn" title="Test sound" aria-label="Test sound">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polygon points="5 3 19 12 5 21 5 3"/>
         </svg>
-        Test
       </button>
     </div>
   </div>
@@ -275,17 +272,15 @@
       <input class="field" type="text" id="askSoundPath"
              placeholder="C:\Windows\Media\Ring01.wav"
              readonly aria-label="Ask sound file path">
-      <button class="btn-icon" id="browseAskBtn" aria-label="Browse WAV file for ask">
+      <button class="btn-icon" id="browseAskBtn" title="Browse WAV file" aria-label="Browse WAV file for ask">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
         </svg>
-        Browse
       </button>
-      <button class="btn-icon" id="testAskSoundBtn" aria-label="Test ask sound">
+      <button class="btn-icon" id="testAskSoundBtn" title="Test sound" aria-label="Test ask sound">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polygon points="5 3 19 12 5 21 5 3"/>
         </svg>
-        Test
       </button>
     </div>
   </div>
@@ -297,11 +292,10 @@
       <input class="field editable" type="text" id="gchatWebhook"
              placeholder="https://chat.googleapis.com/v1/spaces/..."
              aria-label="Google Chat webhook URL">
-      <button class="btn-icon" id="testGchatBtn" aria-label="Test Google Chat notification">
+      <button class="btn-icon" id="testGchatBtn" title="Test Google Chat" aria-label="Test Google Chat notification">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
         </svg>
-        Test
       </button>
     </div>
   </div>
