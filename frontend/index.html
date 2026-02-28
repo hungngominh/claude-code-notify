@@ -108,11 +108,10 @@
     .switch:focus-within .track { outline: 2px solid var(--accent); outline-offset: 2px; }
 
     /* ── Input row ─────────────────────────────────── */
-    .input-row { display: flex; gap: 6px; overflow: hidden; }
+    .input-row { display: flex; gap: 6px; }
 
     .field {
       flex: 1;
-      min-width: 0;
       background: var(--bg);
       border: 1px solid var(--border);
       color: var(--muted);
@@ -132,11 +131,11 @@
 
     /* ── Icon buttons ──────────────────────────────── */
     .btn-icon {
-      display: flex; align-items: center; gap: 4px;
+      display: flex; align-items: center; gap: 5px;
       background: var(--surface);
       color: var(--text);
       border: 1px solid var(--border);
-      padding: 0 8px;
+      padding: 0 10px;
       border-radius: var(--radius-sm);
       cursor: pointer;
       font-size: 11px; font-weight: 500;
@@ -207,7 +206,7 @@
     <div class="row">
       <div>
         <div class="row-label">Enable notifications</div>
-        <div class="row-desc">Sound + phone push via ntfy</div>
+        <div class="row-desc">Sound + push via Google Chat</div>
       </div>
       <label class="switch" title="Toggle notifications">
         <input type="checkbox" id="toggleInput" aria-label="Enable notifications">
@@ -226,6 +225,21 @@
       </div>
       <label class="switch" title="Toggle auto-start">
         <input type="checkbox" id="autoStartInput" aria-label="Start with Windows">
+        <span class="track"></span>
+        <span class="thumb"></span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Toast notifications -->
+  <div class="card">
+    <div class="row">
+      <div>
+        <div class="row-label">Windows toast notifications</div>
+        <div class="row-desc">Show popup in Action Center</div>
+      </div>
+      <label class="switch" title="Toggle toast notifications">
+        <input type="checkbox" id="toastInput" aria-label="Windows toast notifications">
         <span class="track"></span>
         <span class="thumb"></span>
       </label>
@@ -276,16 +290,16 @@
     </div>
   </div>
 
-  <!-- ntfy -->
+  <!-- Google Chat webhook -->
   <div class="card">
-    <div class="sec-label">ntfy topic (phone notifications)</div>
+    <div class="sec-label">Google Chat webhook</div>
     <div class="input-row">
-      <input class="field editable" type="text" id="ntfyTopic"
-             placeholder="e.g. ClaudeCodeHungNM2026"
-             aria-label="ntfy topic">
-      <button class="btn-icon" id="testNtfyBtn" aria-label="Test ntfy notification">
+      <input class="field editable" type="text" id="gchatWebhook"
+             placeholder="https://chat.googleapis.com/v1/spaces/..."
+             aria-label="Google Chat webhook URL">
+      <button class="btn-icon" id="testGchatBtn" aria-label="Test Google Chat notification">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.62 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.6a16 16 0 0 0 5.49 5.49l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
         </svg>
         Test
       </button>

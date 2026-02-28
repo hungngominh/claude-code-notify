@@ -3,14 +3,15 @@ const { open } = window.__TAURI__.dialog;
 
 const toggle          = document.getElementById('toggleInput');
 const autoStart       = document.getElementById('autoStartInput');
+const toastInput      = document.getElementById('toastInput');
 const soundPath       = document.getElementById('soundPath');
 const askSoundPath    = document.getElementById('askSoundPath');
-const ntfyTopic       = document.getElementById('ntfyTopic');
+const gchatWebhook    = document.getElementById('gchatWebhook');
 const browseBtn       = document.getElementById('browseBtn');
 const browseAskBtn    = document.getElementById('browseAskBtn');
 const testSoundBtn    = document.getElementById('testSoundBtn');
 const testAskSoundBtn = document.getElementById('testAskSoundBtn');
-const testNtfyBtn     = document.getElementById('testNtfyBtn');
+const testGchatBtn    = document.getElementById('testGchatBtn');
 const saveBtn         = document.getElementById('saveBtn');
 const statusBar       = document.getElementById('statusBar');
 const statusTxt       = document.getElementById('statusText');
@@ -23,23 +24,15 @@ function syncDot(enabled) {
   statusDot.classList.toggle('off', !enabled);
 }
 
-async function loadConfig() {
+window.addEventListener('DOMContentLoaded', async () => {
   const cfg = await invoke('get_config');
   toggle.checked      = cfg.enabled;
   autoStart.checked   = cfg.auto_start;
+  toastInput.checked  = cfg.toast_enabled;
   soundPath.value     = cfg.sound_path;
   askSoundPath.value  = cfg.ask_sound_path || '';
-  ntfyTopic.value     = cfg.ntfy_topic || '';
+  gchatWebhook.value  = cfg.gchat_webhook || '';
   syncDot(cfg.enabled);
-}
-
-window.addEventListener('DOMContentLoaded', loadConfig);
-
-// Reload config every time the window becomes visible (after being hidden to tray)
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    loadConfig();
-  }
 });
 
 toggle.addEventListener('change', () => syncDot(toggle.checked));
@@ -88,20 +81,20 @@ testAskSoundBtn.addEventListener('click', async () => {
   }
 });
 
-testNtfyBtn.addEventListener('click', async () => {
-  const topic = ntfyTopic.value.trim();
-  if (!topic) {
-    showStatus('Enter an ntfy topic first', 'err', xIcon());
+testGchatBtn.addEventListener('click', async () => {
+  const webhook = gchatWebhook.value.trim();
+  if (!webhook) {
+    showStatus('Enter a Google Chat webhook first', 'err', xIcon());
     return;
   }
-  testNtfyBtn.disabled = true;
-  showStatus('Sending test notification...', 'info', spinnerIcon());
-  const res = await invoke('test_ntfy', { topic });
-  testNtfyBtn.disabled = false;
+  testGchatBtn.disabled = true;
+  showStatus('Sending test message...', 'info', spinnerIcon());
+  const res = await invoke('test_gchat', { webhook });
+  testGchatBtn.disabled = false;
   if (res.ok) {
-    showStatus('Notification sent to phone', 'ok', checkIcon());
+    showStatus('Message sent to Google Chat', 'ok', checkIcon());
   } else {
-    showStatus('Failed — check your topic', 'err', xIcon());
+    showStatus('Failed — check your webhook URL', 'err', xIcon());
   }
 });
 
@@ -112,9 +105,10 @@ saveBtn.addEventListener('click', async () => {
     args: {
       enabled:        toggle.checked,
       auto_start:     autoStart.checked,
+      toast_enabled:  toastInput.checked,
       sound_path:     soundPath.value,
       ask_sound_path: askSoundPath.value,
-      ntfy_topic:     ntfyTopic.value.trim(),
+      gchat_webhook:  gchatWebhook.value.trim(),
     }
   });
   saveBtn.disabled = false;
