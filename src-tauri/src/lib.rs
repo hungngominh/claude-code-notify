@@ -101,7 +101,7 @@ fn extract_wav_path(cmd: &str) -> Option<String> {
     None
 }
 
-fn extract_ntfy_topic(settings: &Value) -> String {
+fn extract_gchat_webhook(settings: &Value) -> String {
     let src = settings.get("hooks").or_else(|| settings.get("_hooksBackup"));
     let src = match src {
         Some(v) => v,
@@ -113,11 +113,10 @@ fn extract_ntfy_topic(settings: &Value) -> String {
                 if let Some(arr) = hooks.as_array() {
                     for hook in arr {
                         if let Some(cmd) = hook.get("command").and_then(|c| c.as_str()) {
-                            if let Some(pos) = cmd.find("ntfy.sh/") {
-                                let topic = &cmd[pos + 8..];
-                                let topic = topic.split_whitespace().next().unwrap_or("");
-                                if !topic.is_empty() {
-                                    return topic.to_string();
+                            if cmd.contains("chat.googleapis.com") {
+                                // Extract URL between quotes
+                                if let Some(url) = extract_quoted_url(cmd, "chat.googleapis.com") {
+                                    return url;
                                 }
                             }
                         }
@@ -127,6 +126,17 @@ fn extract_ntfy_topic(settings: &Value) -> String {
         }
     }
     String::new()
+}
+
+fn extract_quoted_url(cmd: &str, contains: &str) -> Option<String> {
+    // Find URL containing the marker, possibly quoted or unquoted
+    for part in cmd.split_whitespace() {
+        let trimmed = part.trim_matches('"').trim_matches('\'');
+        if trimmed.contains(contains) && trimmed.starts_with("https://") {
+            return Some(trimmed.to_string());
+        }
+    }
+    None
 }
 
 fn get_auto_start_enabled() -> bool {
@@ -183,8 +193,9 @@ pub struct Config {
     enabled: bool,
     sound_path: String,
     ask_sound_path: String,
-    ntfy_topic: String,
+    gchat_webhook: String,
     auto_start: bool,
+    toast_enabled: bool,
 }
 
 #[derive(Deserialize)]
@@ -192,8 +203,65 @@ pub struct SaveConfigArgs {
     enabled: bool,
     sound_path: String,
     ask_sound_path: String,
-    ntfy_topic: String,
+    gchat_webhook: String,
     auto_start: bool,
+    toast_enabled: bool,
+}
+
+fn detect_toast_enabled(settings: &Value) -> bool {
+    let src = settings.get("hooks").or_else(|| settings.get("_hooksBackup"));
+    let src = match src {
+        Some(v) => v,
+        None => return false,
+    };
+    if let Some(obj) = src.as_object() {
+        for (_key, arr) in obj {
+            if let Some(entries) = arr.as_array() {
+                for entry in entries {
+                    if let Some(hooks) = entry.get("hooks").and_then(|h| h.as_array()) {
+                        for hook in hooks {
+                            if let Some(cmd) = hook.get("command").and_then(|c| c.as_str()) {
+                                if cmd.contains("ToastNotificationManager") {
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
+fn toast_command(title: &str, message: &str) -> Value {
+    let cmd = format!(
+        "powershell.exe -c \"[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null; [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] > $null; $xml = [Windows.Data.Xml.Dom.XmlDocument]::new(); $xml.LoadXml('<toast><visual><binding template=''ToastGeneric''><text>{}</text><text>{}</text></binding></visual></toast>'); [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('{{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}}\\WindowsPowerShell\\v1.0\\powershell.exe').Show([Windows.UI.Notifications.ToastNotification]::new($xml))\"",
+        title, message
+    );
+    serde_json::json!({
+        "type": "command",
+        "command": cmd
+    })
+}
+
+fn gchat_card_json(title: &str, subtitle: &str, icon_url: &str, icon: &str) -> String {
+    format!(
+        r#"{{"cardsV2":[{{"cardId":"claude-notify","card":{{"header":{{"title":"{}","subtitle":"{}","imageUrl":"{}","imageType":"CIRCLE"}},"sections":[{{"widgets":[{{"decoratedText":{{"startIcon":{{"knownIcon":"{}"}},"text":"{}"}}}}]}}]}}}}]}}"#,
+        title, subtitle, icon_url, icon, subtitle
+    )
+}
+
+fn gchat_command(webhook: &str, title: &str, subtitle: &str, icon_url: &str, icon: &str) -> Value {
+    let json_body = gchat_card_json(title, subtitle, icon_url, icon);
+    let ps_cmd = format!(
+        "Invoke-RestMethod -Uri '{}' -Method POST -ContentType 'application/json' -Body '{}'",
+        webhook, json_body
+    );
+    serde_json::json!({
+        "type": "command",
+        "command": format!("powershell.exe -c \"{}\"", ps_cmd)
+    })
 }
 
 #[tauri::command]
@@ -203,8 +271,9 @@ fn get_config() -> Config {
         enabled: s.get("hooks").is_some(),
         sound_path: extract_sound_path(&s),
         ask_sound_path: extract_ask_sound_path(&s),
-        ntfy_topic: extract_ntfy_topic(&s),
+        gchat_webhook: extract_gchat_webhook(&s),
         auto_start: get_auto_start_enabled(),
+        toast_enabled: detect_toast_enabled(&s),
     }
 }
 
@@ -214,9 +283,9 @@ fn save_config(args: SaveConfigArgs) -> Value {
 
     set_auto_start(args.auto_start);
 
-    let stop_hooks = build_stop_hooks(&args.sound_path, &args.ntfy_topic);
-    let pre_tool_use_hooks = build_pre_tool_use_hooks(&args.ask_sound_path, &args.ntfy_topic);
-    let notification_hooks = build_notification_hooks(&args.ntfy_topic);
+    let stop_hooks = build_stop_hooks(&args.sound_path, &args.gchat_webhook, args.toast_enabled);
+    let pre_tool_use_hooks = build_pre_tool_use_hooks(&args.ask_sound_path, &args.gchat_webhook, args.toast_enabled);
+    let notification_hooks = build_notification_hooks(&args.ask_sound_path, &args.gchat_webhook, args.toast_enabled);
 
     if args.enabled {
         // Restore from backup if needed
@@ -262,44 +331,64 @@ fn save_config(args: SaveConfigArgs) -> Value {
     serde_json::json!({ "ok": true })
 }
 
-fn build_stop_hooks(sound: &str, topic: &str) -> Value {
+fn build_stop_hooks(sound: &str, webhook: &str, toast: bool) -> Value {
     let mut hooks = vec![serde_json::json!({
         "type": "command",
         "command": format!("powershell.exe -c \"(New-Object Media.SoundPlayer '{}').PlaySync()\"", sound)
     })];
-    if !topic.is_empty() {
-        hooks.push(serde_json::json!({
-            "type": "command",
-            "command": format!("curl -s -d \"Claude Code finished a task\" https://ntfy.sh/{}", topic)
-        }));
+    if !webhook.is_empty() {
+        hooks.push(gchat_command(
+            webhook,
+            "Task Finished",
+            "Claude Code finished a task",
+            "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/2705.png",
+            "BOOKMARK",
+        ));
+    }
+    if toast {
+        hooks.push(toast_command("Claude Code", "Claude Code finished a task"));
     }
     serde_json::json!([{ "hooks": hooks }])
 }
 
-fn build_pre_tool_use_hooks(sound: &str, topic: &str) -> Value {
+fn build_pre_tool_use_hooks(sound: &str, webhook: &str, toast: bool) -> Value {
     let mut hooks = vec![serde_json::json!({
         "type": "command",
         "command": format!("powershell.exe -c \"(New-Object Media.SoundPlayer '{}').PlaySync()\"", sound)
     })];
-    if !topic.is_empty() {
-        hooks.push(serde_json::json!({
-            "type": "command",
-            "command": format!("curl -s -d \"Claude Code is asking you a question\" https://ntfy.sh/{}", topic)
-        }));
+    if !webhook.is_empty() {
+        hooks.push(gchat_command(
+            webhook,
+            "Question",
+            "Claude Code is asking a question",
+            "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/2753.png",
+            "PERSON",
+        ));
+    }
+    if toast {
+        hooks.push(toast_command("Claude Code", "Claude Code is asking a question"));
     }
     serde_json::json!([{ "matcher": "AskUserQuestion", "hooks": hooks }])
 }
 
-fn build_notification_hooks(topic: &str) -> Option<Value> {
-    if topic.is_empty() {
-        return None;
+fn build_notification_hooks(ask_sound: &str, webhook: &str, toast: bool) -> Option<Value> {
+    let mut hooks: Vec<Value> = vec![serde_json::json!({
+        "type": "command",
+        "command": format!("powershell.exe -c \"(New-Object Media.SoundPlayer '{}').PlaySync()\"", ask_sound)
+    })];
+    if !webhook.is_empty() {
+        hooks.push(gchat_command(
+            webhook,
+            "Attention",
+            "Claude Code needs attention",
+            "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f514.png",
+            "DESCRIPTION",
+        ));
     }
-    Some(serde_json::json!([{
-        "hooks": [{
-            "type": "command",
-            "command": format!("curl -s -d \"Claude Code needs your attention\" https://ntfy.sh/{}", topic)
-        }]
-    }]))
+    if toast {
+        hooks.push(toast_command("Claude Code", "Claude Code needs attention"));
+    }
+    Some(serde_json::json!([{ "hooks": hooks }]))
 }
 
 #[tauri::command]
@@ -323,16 +412,21 @@ fn test_sound(path: String) -> Value {
 }
 
 #[tauri::command]
-fn test_ntfy(topic: String) -> Value {
+fn test_gchat(webhook: String) -> Value {
     const CREATE_NO_WINDOW: u32 = 0x08000000;
-    let output = Command::new("curl")
+    let json_body = gchat_card_json(
+        "Test",
+        "Test from Claude Notify app",
+        "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f9ea.png",
+        "DESCRIPTION",
+    );
+    let ps_cmd = format!(
+        "Invoke-RestMethod -Uri '{}' -Method POST -ContentType 'application/json' -Body '{}'",
+        webhook, json_body
+    );
+    let output = Command::new("powershell.exe")
         .creation_flags(CREATE_NO_WINDOW)
-        .args([
-            "-s",
-            "-d",
-            "Test from Claude Notify app",
-            &format!("https://ntfy.sh/{}", topic),
-        ])
+        .args(["-c", &ps_cmd])
         .output();
     match output {
         Ok(o) if o.status.success() => serde_json::json!({ "ok": true }),
@@ -412,7 +506,7 @@ pub fn run() {
             get_config,
             save_config,
             test_sound,
-            test_ntfy,
+            test_gchat,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
