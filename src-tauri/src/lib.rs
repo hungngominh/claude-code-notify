@@ -236,7 +236,7 @@ fn detect_toast_enabled(settings: &Value) -> bool {
 
 fn toast_command(title: &str, message: &str) -> Value {
     let cmd = format!(
-        "powershell.exe -c \"[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null; [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] > $null; $xml = [Windows.Data.Xml.Dom.XmlDocument]::new(); $xml.LoadXml('<toast><visual><binding template=''ToastGeneric''><text>{}</text><text>{}</text></binding></visual></toast>'); [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('{{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}}\\WindowsPowerShell\\v1.0\\powershell.exe').Show([Windows.UI.Notifications.ToastNotification]::new($xml))\"",
+        "powershell.exe -c \"try {{ [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null; [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] > $null; $xml = [Windows.Data.Xml.Dom.XmlDocument]::new(); $xml.LoadXml('<toast><visual><binding template=''ToastGeneric''><text>{}</text><text>{}</text></binding></visual></toast>'); [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('{{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}}\\WindowsPowerShell\\v1.0\\powershell.exe').Show([Windows.UI.Notifications.ToastNotification]::new($xml)) }} catch {{}}; exit 0\"",
         title, message
     );
     serde_json::json!({
@@ -255,7 +255,7 @@ fn gchat_card_json(title: &str, subtitle: &str, icon_url: &str, icon: &str) -> S
 fn gchat_command(webhook: &str, title: &str, subtitle: &str, icon_url: &str, icon: &str) -> Value {
     let json_body = gchat_card_json(title, subtitle, icon_url, icon);
     let ps_cmd = format!(
-        "Invoke-RestMethod -Uri '{}' -Method POST -ContentType 'application/json' -Body '{}'",
+        "try {{ Invoke-RestMethod -Uri '{}' -Method POST -ContentType 'application/json' -Body '{}' }} catch {{}}; exit 0",
         webhook, json_body
     );
     serde_json::json!({
@@ -334,7 +334,7 @@ fn save_config(args: SaveConfigArgs) -> Value {
 fn build_stop_hooks(sound: &str, webhook: &str, toast: bool) -> Value {
     let mut hooks = vec![serde_json::json!({
         "type": "command",
-        "command": format!("powershell.exe -c \"(New-Object Media.SoundPlayer '{}').PlaySync()\"", sound)
+        "command": format!("powershell.exe -c \"try {{ (New-Object Media.SoundPlayer '{}').PlaySync() }} catch {{}}; exit 0\"", sound)
     })];
     if !webhook.is_empty() {
         hooks.push(gchat_command(
@@ -354,7 +354,7 @@ fn build_stop_hooks(sound: &str, webhook: &str, toast: bool) -> Value {
 fn build_pre_tool_use_hooks(sound: &str, webhook: &str, toast: bool) -> Value {
     let mut hooks = vec![serde_json::json!({
         "type": "command",
-        "command": format!("powershell.exe -c \"(New-Object Media.SoundPlayer '{}').PlaySync()\"", sound)
+        "command": format!("powershell.exe -c \"try {{ (New-Object Media.SoundPlayer '{}').PlaySync() }} catch {{}}; exit 0\"", sound)
     })];
     if !webhook.is_empty() {
         hooks.push(gchat_command(
@@ -374,7 +374,7 @@ fn build_pre_tool_use_hooks(sound: &str, webhook: &str, toast: bool) -> Value {
 fn build_notification_hooks(ask_sound: &str, webhook: &str, toast: bool) -> Option<Value> {
     let mut hooks: Vec<Value> = vec![serde_json::json!({
         "type": "command",
-        "command": format!("powershell.exe -c \"(New-Object Media.SoundPlayer '{}').PlaySync()\"", ask_sound)
+        "command": format!("powershell.exe -c \"try {{ (New-Object Media.SoundPlayer '{}').PlaySync() }} catch {{}}; exit 0\"", ask_sound)
     })];
     if !webhook.is_empty() {
         hooks.push(gchat_command(
