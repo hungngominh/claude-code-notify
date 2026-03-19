@@ -402,8 +402,15 @@
 
   <!-- Sound — Stop -->
   <div class="card">
-    <div class="sec-label">Sound — task finished (Stop)</div>
-    <div class="input-row">
+    <div class="row" style="margin-bottom:8px;">
+      <div class="sec-label" style="margin-bottom:0;">Sound — task finished (Stop)</div>
+      <label class="switch" title="Toggle stop sound">
+        <input type="checkbox" id="soundEnabled" aria-label="Enable stop sound">
+        <span class="track"></span>
+        <span class="thumb"></span>
+      </label>
+    </div>
+    <div class="input-row" id="soundRow">
       <input class="field" type="text" id="soundPath"
              placeholder="C:\Windows\Media\notify.wav"
              readonly aria-label="Sound file path">
@@ -422,8 +429,15 @@
 
   <!-- Sound — AskUserQuestion -->
   <div class="card">
-    <div class="sec-label">Sound — asking question (AskUserQuestion)</div>
-    <div class="input-row">
+    <div class="row" style="margin-bottom:8px;">
+      <div class="sec-label" style="margin-bottom:0;">Sound — asking question (AskUserQuestion)</div>
+      <label class="switch" title="Toggle ask sound">
+        <input type="checkbox" id="askSoundEnabled" aria-label="Enable ask sound">
+        <span class="track"></span>
+        <span class="thumb"></span>
+      </label>
+    </div>
+    <div class="input-row" id="askSoundRow">
       <input class="field" type="text" id="askSoundPath"
              placeholder="C:\Windows\Media\Ring01.wav"
              readonly aria-label="Ask sound file path">
