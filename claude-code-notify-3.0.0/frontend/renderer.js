@@ -7,6 +7,10 @@ const toastInput      = document.getElementById('toastInput');
 const happyInput      = document.getElementById('happyInput');
 const soundPath       = document.getElementById('soundPath');
 const askSoundPath    = document.getElementById('askSoundPath');
+const soundEnabled    = document.getElementById('soundEnabled');
+const askSoundEnabled = document.getElementById('askSoundEnabled');
+const soundRow        = document.getElementById('soundRow');
+const askSoundRow     = document.getElementById('askSoundRow');
 const gchatWebhook    = document.getElementById('gchatWebhook');
 const browseBtn       = document.getElementById('browseBtn');
 const browseAskBtn    = document.getElementById('browseAskBtn');
@@ -47,6 +51,11 @@ function syncDot(enabled) {
   statusDot.classList.toggle('off', !enabled);
 }
 
+function syncSoundRow(enabled, row) {
+  row.style.opacity = enabled ? '1' : '0.35';
+  row.querySelectorAll('button').forEach(b => b.disabled = !enabled);
+}
+
 window.addEventListener('DOMContentLoaded', async () => {
   const cfg = await invoke('get_config');
   toggle.checked      = cfg.enabled;
@@ -56,6 +65,13 @@ window.addEventListener('DOMContentLoaded', async () => {
   soundPath.value     = cfg.sound_path;
   askSoundPath.value  = cfg.ask_sound_path || '';
   gchatWebhook.value  = cfg.gchat_webhook || '';
+
+  // Sound toggles — on = path is non-empty
+  soundEnabled.checked    = !!cfg.sound_path;
+  askSoundEnabled.checked = !!cfg.ask_sound_path;
+  syncSoundRow(soundEnabled.checked, soundRow);
+  syncSoundRow(askSoundEnabled.checked, askSoundRow);
+
   syncDot(cfg.enabled);
 
   // Load Happy project directory
@@ -68,6 +84,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 });
 
 toggle.addEventListener('change', () => syncDot(toggle.checked));
+soundEnabled.addEventListener('change',    () => syncSoundRow(soundEnabled.checked, soundRow));
+askSoundEnabled.addEventListener('change', () => syncSoundRow(askSoundEnabled.checked, askSoundRow));
 
 // ── Happy setup check ─────────────────────────────────────────
 
@@ -358,8 +376,8 @@ saveBtn.addEventListener('click', async () => {
       auto_start:     autoStart.checked,
       toast_enabled:  toastInput.checked,
       happy_enabled:  happyInput.checked,
-      sound_path:     soundPath.value,
-      ask_sound_path: askSoundPath.value,
+      sound_path:     soundEnabled.checked    ? soundPath.value    : '',
+      ask_sound_path: askSoundEnabled.checked ? askSoundPath.value : '',
       gchat_webhook:  gchatWebhook.value.trim(),
     }
   });
