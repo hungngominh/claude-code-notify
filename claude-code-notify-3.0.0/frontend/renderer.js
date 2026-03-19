@@ -12,6 +12,8 @@ const askSoundEnabled = document.getElementById('askSoundEnabled');
 const soundRow        = document.getElementById('soundRow');
 const askSoundRow     = document.getElementById('askSoundRow');
 const gchatWebhook    = document.getElementById('gchatWebhook');
+const gchatEnabled    = document.getElementById('gchatEnabled');
+const gchatRow        = document.getElementById('gchatRow');
 const browseBtn       = document.getElementById('browseBtn');
 const browseAskBtn    = document.getElementById('browseAskBtn');
 const testSoundBtn    = document.getElementById('testSoundBtn');
@@ -72,6 +74,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   syncSoundRow(soundEnabled.checked, soundRow);
   syncSoundRow(askSoundEnabled.checked, askSoundRow);
 
+  // GChat toggle — on = webhook is non-empty
+  gchatEnabled.checked = !!cfg.gchat_webhook;
+  syncSoundRow(gchatEnabled.checked, gchatRow);
+
   syncDot(cfg.enabled);
 
   // Load Happy project directory
@@ -86,6 +92,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 toggle.addEventListener('change', () => syncDot(toggle.checked));
 soundEnabled.addEventListener('change',    () => syncSoundRow(soundEnabled.checked, soundRow));
 askSoundEnabled.addEventListener('change', () => syncSoundRow(askSoundEnabled.checked, askSoundRow));
+gchatEnabled.addEventListener('change',    () => syncSoundRow(gchatEnabled.checked, gchatRow));
 
 // ── Happy setup check ─────────────────────────────────────────
 
@@ -378,7 +385,7 @@ saveBtn.addEventListener('click', async () => {
       happy_enabled:  happyInput.checked,
       sound_path:     soundEnabled.checked    ? soundPath.value    : '',
       ask_sound_path: askSoundEnabled.checked ? askSoundPath.value : '',
-      gchat_webhook:  gchatWebhook.value.trim(),
+      gchat_webhook:  gchatEnabled.checked    ? gchatWebhook.value.trim() : '',
     }
   });
   saveBtn.disabled = false;

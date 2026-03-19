@@ -456,8 +456,15 @@
 
   <!-- Google Chat webhook -->
   <div class="card">
-    <div class="sec-label">Google Chat webhook</div>
-    <div class="input-row">
+    <div class="row" style="margin-bottom:8px;">
+      <div class="sec-label" style="margin-bottom:0;">Google Chat webhook</div>
+      <label class="switch" title="Toggle Google Chat notifications">
+        <input type="checkbox" id="gchatEnabled" aria-label="Enable Google Chat notifications">
+        <span class="track"></span>
+        <span class="thumb"></span>
+      </label>
+    </div>
+    <div class="input-row" id="gchatRow">
       <input class="field editable" type="text" id="gchatWebhook"
              placeholder="https://chat.googleapis.com/v1/spaces/..."
              aria-label="Google Chat webhook URL">
