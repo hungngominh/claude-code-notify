@@ -70,6 +70,12 @@ struct SavedNotifyConfig {
     #[cfg(feature = "future_happy")]
     #[serde(default)]
     happy_project_dir: String,
+    #[cfg(feature = "future_happy")]
+    #[serde(default)]
+    happy_auto_daemon: bool,
+    #[cfg(feature = "future_happy")]
+    #[serde(default)]
+    happy_projects: Vec<String>,
 }
 
 impl From<&SaveConfigArgs> for SavedNotifyConfig {
@@ -90,6 +96,8 @@ impl From<&SaveConfigArgs> for SavedNotifyConfig {
                 toast_enabled: a.toast_enabled,
                 happy_enabled: a.happy_enabled,
                 happy_project_dir: existing_dir,
+                happy_auto_daemon: a.happy_auto_daemon,
+                happy_projects: a.happy_projects.clone(),
             };
         }
         #[cfg(not(feature = "future_happy"))]
@@ -356,6 +364,10 @@ pub struct Config {
     toast_enabled: bool,
     #[cfg(feature = "future_happy")]
     happy_enabled: bool,
+    #[cfg(feature = "future_happy")]
+    happy_auto_daemon: bool,
+    #[cfg(feature = "future_happy")]
+    happy_projects: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -368,6 +380,10 @@ pub struct SaveConfigArgs {
     toast_enabled: bool,
     #[cfg(feature = "future_happy")]
     happy_enabled: bool,
+    #[cfg(feature = "future_happy")]
+    happy_auto_daemon: bool,
+    #[cfg(feature = "future_happy")]
+    happy_projects: Vec<String>,
 }
 
 // ── Hook command builders ─────────────────────────────────────
@@ -693,6 +709,10 @@ fn get_config() -> Config {
             toast_enabled: saved.toast_enabled,
             #[cfg(feature = "future_happy")]
             happy_enabled: saved.happy_enabled,
+            #[cfg(feature = "future_happy")]
+            happy_auto_daemon: saved.happy_auto_daemon,
+            #[cfg(feature = "future_happy")]
+            happy_projects: saved.happy_projects,
         };
     }
 
@@ -711,6 +731,10 @@ fn get_config() -> Config {
             (cmd.contains("happy") && cmd.contains("notify"))
             || cmd.contains("claude-notify-happy.cjs")
         }),
+        #[cfg(feature = "future_happy")]
+        happy_auto_daemon: false,
+        #[cfg(feature = "future_happy")]
+        happy_projects: vec![],
     }
 }
 
@@ -1167,6 +1191,69 @@ fn check_happy_running() -> Value {
 
 #[cfg(feature = "future_happy")]
 #[tauri::command]
+fn get_daemon_status() -> Value {
+    let happy_path = get_happy_path();
+    if !happy_path.exists() {
+        return serde_json::json!({ "running": false, "error": "happy-coder not installed" });
+    }
+    let output = Command::new(&happy_path)
+        .creation_flags(CREATE_NO_WINDOW)
+        .args(["daemon", "status"])
+        .output();
+    match output {
+        Ok(o) => {
+            let combined = format!(
+                "{}{}",
+                String::from_utf8_lossy(&o.stdout),
+                String::from_utf8_lossy(&o.stderr)
+            ).to_lowercase();
+            let running = combined.contains("running") && !combined.contains("not running");
+            serde_json::json!({ "running": running })
+        }
+        Err(e) => serde_json::json!({ "running": false, "error": e.to_string() }),
+    }
+}
+
+#[cfg(feature = "future_happy")]
+#[tauri::command]
+fn start_daemon() -> Value {
+    let happy_path = get_happy_path();
+    if !happy_path.exists() {
+        return serde_json::json!({ "ok": false, "error": "happy-coder not installed" });
+    }
+    let result = Command::new(&happy_path)
+        .creation_flags(CREATE_NO_WINDOW)
+        .args(["daemon", "start"])
+        .spawn();
+    match result {
+        Ok(_) => serde_json::json!({ "ok": true }),
+        Err(e) => serde_json::json!({ "ok": false, "error": e.to_string() }),
+    }
+}
+
+#[cfg(feature = "future_happy")]
+#[tauri::command]
+fn stop_daemon() -> Value {
+    let happy_path = get_happy_path();
+    if !happy_path.exists() {
+        return serde_json::json!({ "ok": false, "error": "happy-coder not installed" });
+    }
+    let output = Command::new(&happy_path)
+        .creation_flags(CREATE_NO_WINDOW)
+        .args(["daemon", "stop"])
+        .output();
+    match output {
+        Ok(o) if o.status.success() => serde_json::json!({ "ok": true }),
+        Ok(o) => serde_json::json!({
+            "ok": false,
+            "error": String::from_utf8_lossy(&o.stderr).to_string()
+        }),
+        Err(e) => serde_json::json!({ "ok": false, "error": e.to_string() }),
+    }
+}
+
+#[cfg(feature = "future_happy")]
+#[tauri::command]
 fn test_happy() -> Value {
     let happy_path = get_happy_path();
     if !happy_path.exists() {
@@ -1291,11 +1378,14 @@ pub fn run() {
         .setup(|app| {
             #[cfg(feature = "future_happy")]
             let launch_happy = MenuItemBuilder::with_id("launch_happy", "Launch Happy Session").build(app)?;
+            #[cfg(feature = "future_happy")]
+            let daemon_item = MenuItemBuilder::with_id("toggle_daemon", "Happy Daemon: Start").build(app)?;
             let open_item = MenuItemBuilder::with_id("open", "Open Settings").build(app)?;
             let quit_item = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
             #[cfg(feature = "future_happy")]
             let menu = MenuBuilder::new(app)
                 .item(&launch_happy)
+                .item(&daemon_item)
                 .item(&open_item)
                 .separator()
                 .item(&quit_item)
@@ -1334,6 +1424,30 @@ pub fn run() {
                             let _ = Command::new("cmd")
                                 .creation_flags(CREATE_NO_WINDOW)
                                 .args(["/c", "start", "", "cmd", "/k", &batch_path.to_string_lossy().to_string()])
+                                .spawn();
+                        }
+                    }
+                    #[cfg(feature = "future_happy")]
+                    "toggle_daemon" => {
+                        let happy_path = get_happy_path();
+                        if happy_path.exists() {
+                            let status = Command::new(&happy_path)
+                                .creation_flags(CREATE_NO_WINDOW)
+                                .args(["daemon", "status"])
+                                .output()
+                                .map(|o| {
+                                    let s = format!(
+                                        "{}{}",
+                                        String::from_utf8_lossy(&o.stdout),
+                                        String::from_utf8_lossy(&o.stderr)
+                                    ).to_lowercase();
+                                    s.contains("running") && !s.contains("not running")
+                                })
+                                .unwrap_or(false);
+                            let args = if status { vec!["daemon", "stop"] } else { vec!["daemon", "start"] };
+                            let _ = Command::new(&happy_path)
+                                .creation_flags(CREATE_NO_WINDOW)
+                                .args(&args)
                                 .spawn();
                         }
                     }
@@ -1379,32 +1493,34 @@ pub fn run() {
                 });
             }
 
-            // Background thread: monitor Happy session and update tray tooltip
+            // Background thread: monitor Happy daemon and update tray tooltip
             #[cfg(feature = "future_happy")]
             {
                 let app_handle = app.handle().clone();
                 std::thread::spawn(move || {
                     loop {
-                        std::thread::sleep(std::time::Duration::from_secs(30));
-                        let ps_cmd = r#"(Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -match 'happy' } | Measure-Object).Count"#;
-                        let running = Command::new("powershell.exe")
+                        std::thread::sleep(std::time::Duration::from_secs(10));
+                        let happy_path = get_happy_path();
+                        if !happy_path.exists() { continue; }
+                        let running = Command::new(&happy_path)
                             .creation_flags(CREATE_NO_WINDOW)
-                            .args(["-c", ps_cmd])
+                            .args(["daemon", "status"])
                             .output()
                             .map(|o| {
-                                String::from_utf8_lossy(&o.stdout)
-                                    .trim()
-                                    .parse::<i32>()
-                                    .unwrap_or(0) > 0
+                                let s = format!(
+                                    "{}{}",
+                                    String::from_utf8_lossy(&o.stdout),
+                                    String::from_utf8_lossy(&o.stderr)
+                                ).to_lowercase();
+                                s.contains("running") && !s.contains("not running")
                             })
                             .unwrap_or(false);
 
                         let tooltip = if running {
-                            "Claude Notify — Happy session active"
+                            "Claude Notify — Happy daemon running"
                         } else {
                             "Claude Code Notifications"
                         };
-
                         if let Some(tray) = app_handle.tray_by_id("main-tray") {
                             let _ = tray.set_tooltip(Some(tooltip));
                         }
@@ -1438,6 +1554,12 @@ pub fn run() {
             launch_happy_session,
             #[cfg(feature = "future_happy")]
             check_happy_running,
+            #[cfg(feature = "future_happy")]
+            get_daemon_status,
+            #[cfg(feature = "future_happy")]
+            start_daemon,
+            #[cfg(feature = "future_happy")]
+            stop_daemon,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
