@@ -12,6 +12,8 @@ const askSoundEnabled = document.getElementById('askSoundEnabled');
 const soundRow        = document.getElementById('soundRow');
 const askSoundRow     = document.getElementById('askSoundRow');
 const gchatWebhook    = document.getElementById('gchatWebhook');
+const gchatEnabled    = document.getElementById('gchatEnabled');
+const gchatRow        = document.getElementById('gchatRow');
 const browseBtn       = document.getElementById('browseBtn');
 const browseAskBtn    = document.getElementById('browseAskBtn');
 const testSoundBtn    = document.getElementById('testSoundBtn');
@@ -38,9 +40,8 @@ const happyToggleRow  = document.getElementById('happyToggleRow');
 const happySessionSection = document.getElementById('happySessionSection');
 
 // Happy session elements
-const happyProjectDir   = document.getElementById('happyProjectDir');
-const browseHappyDirBtn = document.getElementById('browseHappyDirBtn');
-const launchHappyBtn    = document.getElementById('launchHappyBtn');
+const happyProjectList   = document.getElementById('happyProjectList');
+const addHappyProjectBtn = document.getElementById('addHappyProjectBtn');
 const happyRunningDot   = document.getElementById('happyRunningDot');
 const happyRunningText  = document.getElementById('happyRunningText');
 const workspaceList     = document.getElementById('workspaceList');
@@ -72,20 +73,22 @@ window.addEventListener('DOMContentLoaded', async () => {
   syncSoundRow(soundEnabled.checked, soundRow);
   syncSoundRow(askSoundEnabled.checked, askSoundRow);
 
+  // GChat toggle — on = webhook is non-empty
+  gchatEnabled.checked = !!cfg.gchat_webhook;
+  syncSoundRow(gchatEnabled.checked, gchatRow);
+
   syncDot(cfg.enabled);
 
-  // Load Happy project directory
-  const dir = await invoke('get_happy_project_dir');
-  if (dir) happyProjectDir.value = dir;
+  await renderHappyProjects();
 
   // Check Happy setup status
   checkHappyStatus();
-  checkHappyRunning();
 });
 
 toggle.addEventListener('change', () => syncDot(toggle.checked));
 soundEnabled.addEventListener('change',    () => syncSoundRow(soundEnabled.checked, soundRow));
 askSoundEnabled.addEventListener('change', () => syncSoundRow(askSoundEnabled.checked, askSoundRow));
+gchatEnabled.addEventListener('change',    () => syncSoundRow(gchatEnabled.checked, gchatRow));
 
 // ── Happy setup check ─────────────────────────────────────────
 
@@ -146,6 +149,64 @@ async function checkHappyStatus() {
     setStep(stepNodeDot, stepNodeText, 'error', 'Check failed');
   }
 }
+
+async function renderHappyProjects() {
+  if (!happyProjectList) return;
+  let projects = [];
+  try { projects = await invoke('get_happy_projects'); } catch {}
+  happyProjectList.innerHTML = '';
+  if (projects.length === 0) {
+    happyProjectList.innerHTML = '<div style="font-size:11px;color:var(--muted);padding:4px 8px;">No projects added yet</div>';
+    return;
+  }
+  projects.forEach(p => {
+    const name = p.replace(/\\/g, '/').split('/').filter(Boolean).pop() || p;
+    const el = document.createElement('div');
+    el.className = 'proj-item';
+    el.innerHTML = `
+      <span class="proj-name" title="${p}">${name}</span>
+      <span class="proj-path" title="${p}">${p}</span>
+      <div class="proj-actions">
+        <button class="btn-icon" title="Launch session" data-path="${p}">&#9654;</button>
+        <button class="btn-icon" title="Remove" data-path="${p}" data-action="remove">&#x2715;</button>
+      </div>
+    `;
+    el.querySelector('[title="Launch session"]').addEventListener('click', async (e) => {
+      const path = e.currentTarget.dataset.path;
+      try {
+        const r = await invoke('launch_happy_session', { cwd: path });
+        showStatus(r.ok ? 'Session launched!' : (r.error || 'Launch failed'), r.ok ? 'ok' : 'error');
+      } catch (err) {
+        showStatus('Launch failed: ' + err, 'error');
+      }
+    });
+    el.querySelector('[data-action="remove"]').addEventListener('click', async (e) => {
+      const path = e.currentTarget.dataset.path;
+      try {
+        await invoke('remove_happy_project', { path });
+        await renderHappyProjects();
+      } catch {}
+    });
+    happyProjectList.appendChild(el);
+  });
+}
+
+async function checkDaemonStatus() {
+  const dot = document.getElementById('happyRunningDot');
+  const text = document.getElementById('happyRunningText');
+  if (!dot || !text) return;
+  try {
+    const r = await invoke('get_daemon_status');
+    dot.className = 'happy-status-dot ' + (r.running ? 'connected' : 'error');
+    text.textContent = r.running ? 'Daemon running' : 'Daemon stopped';
+  } catch {
+    dot.className = 'happy-status-dot error';
+    text.textContent = 'Status unknown';
+  }
+}
+
+setInterval(checkDaemonStatus, 10000);
+checkDaemonStatus();
 
 // ── Install happy-coder ───────────────────────────────────────
 
@@ -218,7 +279,7 @@ async function loadWorkspaces() {
         const res = await invoke('launch_happy_session', { cwd: dir });
         if (res.ok) {
           showStatus(`Happy launched — ${item.querySelector('.ws-name').textContent}`, 'ok', checkIcon(), 6000);
-          setTimeout(checkHappyRunning, 5000);
+          setTimeout(checkDaemonStatus, 5000);
         } else {
           showStatus(res.error || 'Failed to launch', 'err', xIcon());
         }
@@ -228,53 +289,6 @@ async function loadWorkspaces() {
     workspaceList.innerHTML = '<div class="ws-empty">Could not detect workspaces</div>';
   }
 }
-
-// ── Happy session monitor ─────────────────────────────────────
-
-async function checkHappyRunning() {
-  try {
-    const res = await invoke('check_happy_running');
-    happyRunningDot.className = 'happy-status-dot ' + (res.running ? 'connected' : '');
-    happyRunningText.textContent = res.running ? 'Happy session active' : 'No active session';
-  } catch {
-    happyRunningDot.className = 'happy-status-dot';
-    happyRunningText.textContent = 'No active session';
-  }
-}
-
-setInterval(checkHappyRunning, 30000);
-
-// ── Happy session launcher ────────────────────────────────────
-
-browseHappyDirBtn.addEventListener('click', async () => {
-  const picked = await open({
-    title: 'Select project directory for Happy session',
-    directory: true,
-    multiple: false,
-  });
-  if (picked) {
-    happyProjectDir.value = picked;
-    await invoke('set_happy_project_dir', { dir: picked });
-  }
-});
-
-launchHappyBtn.addEventListener('click', async () => {
-  const dir = happyProjectDir.value.trim();
-  if (!dir) {
-    showStatus('Select a project directory first', 'err', xIcon());
-    return;
-  }
-  launchHappyBtn.disabled = true;
-  showStatus('Launching Happy session...', 'info', spinnerIcon());
-  const res = await invoke('launch_happy_session', { cwd: dir });
-  launchHappyBtn.disabled = false;
-  if (res.ok) {
-    showStatus('Happy session launched in new terminal', 'ok', checkIcon(), 6000);
-    setTimeout(checkHappyRunning, 5000);
-  } else {
-    showStatus(res.error || 'Failed to launch', 'err', xIcon());
-  }
-});
 
 // ── Sound browsing ────────────────────────────────────────────
 
@@ -365,6 +379,20 @@ testToastBtn.addEventListener('click', async () => {
   }
 });
 
+if (addHappyProjectBtn) {
+  addHappyProjectBtn.addEventListener('click', async () => {
+    try {
+      const selected = await open({ directory: true, multiple: false, title: 'Select project folder' });
+      if (selected) {
+        await invoke('add_happy_project', { path: selected });
+        await renderHappyProjects();
+      }
+    } catch (err) {
+      showStatus('Failed to add project: ' + err, 'error');
+    }
+  });
+}
+
 // ── Save ──────────────────────────────────────────────────────
 
 saveBtn.addEventListener('click', async () => {
@@ -378,7 +406,7 @@ saveBtn.addEventListener('click', async () => {
       happy_enabled:  happyInput.checked,
       sound_path:     soundEnabled.checked    ? soundPath.value    : '',
       ask_sound_path: askSoundEnabled.checked ? askSoundPath.value : '',
-      gchat_webhook:  gchatWebhook.value.trim(),
+      gchat_webhook:  gchatEnabled.checked    ? gchatWebhook.value.trim() : '',
     }
   });
   saveBtn.disabled = false;
