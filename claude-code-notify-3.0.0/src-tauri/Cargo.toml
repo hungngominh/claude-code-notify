@@ -1,6 +1,6 @@
 [package]
 name = "claude-notify-app"
-version = "3.0.3"
+version = "4.0.0"
 edition = "2021"
 
 [lib]
