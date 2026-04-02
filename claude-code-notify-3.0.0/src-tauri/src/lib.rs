@@ -28,7 +28,11 @@ fn settings_path() -> PathBuf {
 fn read_settings() -> Value {
     let path = settings_path();
     match fs::read_to_string(&path) {
-        Ok(content) => serde_json::from_str(&content).unwrap_or(Value::Object(Default::default())),
+        Ok(content) => {
+            // Strip UTF-8 BOM (0xEF 0xBB 0xBF) if present — PowerShell writes it by default
+            let content = content.trim_start_matches('\u{FEFF}');
+            serde_json::from_str(content).unwrap_or(Value::Object(Default::default()))
+        }
         Err(_) => Value::Object(Default::default()),
     }
 }
