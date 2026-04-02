@@ -30,4 +30,5 @@ opt-level = "s"
 panic = "abort"
 
 [features]
+default = ["future_happy"]
 future_happy = []
