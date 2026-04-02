@@ -1136,6 +1136,45 @@ fn set_happy_project_dir(dir: String) {
 
 #[cfg(feature = "future_happy")]
 #[tauri::command]
+fn get_happy_projects() -> Vec<String> {
+    let s = read_settings();
+    load_saved_config(&s)
+        .map(|c| c.happy_projects)
+        .unwrap_or_default()
+}
+
+#[cfg(feature = "future_happy")]
+#[tauri::command]
+fn add_happy_project(path: String) -> Vec<String> {
+    let mut s = read_settings();
+    if let Some(mut cfg) = load_saved_config(&s) {
+        if !cfg.happy_projects.contains(&path) {
+            cfg.happy_projects.push(path);
+        }
+        let projects = cfg.happy_projects.clone();
+        write_saved_config(&mut s, &cfg);
+        write_settings(&s);
+        return projects;
+    }
+    vec![]
+}
+
+#[cfg(feature = "future_happy")]
+#[tauri::command]
+fn remove_happy_project(path: String) -> Vec<String> {
+    let mut s = read_settings();
+    if let Some(mut cfg) = load_saved_config(&s) {
+        cfg.happy_projects.retain(|p| p != &path);
+        let projects = cfg.happy_projects.clone();
+        write_saved_config(&mut s, &cfg);
+        write_settings(&s);
+        return projects;
+    }
+    vec![]
+}
+
+#[cfg(feature = "future_happy")]
+#[tauri::command]
 fn launch_happy_session(cwd: String) -> Value {
     let happy_path = get_happy_path();
     if !happy_path.exists() {
@@ -1559,6 +1598,12 @@ pub fn run() {
             get_happy_project_dir,
             #[cfg(feature = "future_happy")]
             set_happy_project_dir,
+            #[cfg(feature = "future_happy")]
+            get_happy_projects,
+            #[cfg(feature = "future_happy")]
+            add_happy_project,
+            #[cfg(feature = "future_happy")]
+            remove_happy_project,
             #[cfg(feature = "future_happy")]
             launch_happy_session,
             #[cfg(feature = "future_happy")]
