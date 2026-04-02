@@ -407,6 +407,8 @@ saveBtn.addEventListener('click', async () => {
       sound_path:     soundEnabled.checked    ? soundPath.value    : '',
       ask_sound_path: askSoundEnabled.checked ? askSoundPath.value : '',
       gchat_webhook:  gchatEnabled.checked    ? gchatWebhook.value.trim() : '',
+      happy_auto_daemon: false,
+      happy_projects: [],
     }
   });
   saveBtn.disabled = false;

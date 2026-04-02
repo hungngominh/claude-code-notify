@@ -12,10 +12,10 @@ use tauri::{
 
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
-// ── FUTURE WORK: Happy Push Notifications ─────────────────────
-// Happy integration is disabled in this version (v3.0.2).
-// To re-enable: add `future_happy` to the default features in Cargo.toml.
-// All Happy code is preserved under #[cfg(feature = "future_happy")].
+// ── Happy Push Notifications ──────────────────────────────────
+// Happy integration is enabled in v4.0.0.
+// happy_auto_daemon and happy_projects are managed via dedicated commands
+// (add_happy_project / remove_happy_project) and are not overwritten by save_config.
 // ─────────────────────────────────────────────────────────────
 
 fn settings_path() -> PathBuf {
