@@ -574,6 +574,7 @@ fn generate_hook_script(
     webhook: &str,
     toast: bool,
     #[cfg(feature = "future_happy")] happy: bool,
+    #[cfg(feature = "future_happy")] happy_path: &str,
 ) {
     let script_dir = dirs::home_dir().unwrap_or_default().join(".claude");
     let _ = fs::create_dir_all(&script_dir);
@@ -582,9 +583,6 @@ fn generate_hook_script(
     if toast {
         toast_command("Claude Code", "");
     }
-
-    #[cfg(feature = "future_happy")]
-    let happy_path = get_happy_path().to_string_lossy().replace('\\', "/");
     let toast_ps1 = script_dir.join("claude-notify-toast.ps1")
         .to_string_lossy().replace('\\', "/");
     let stop_s = stop_sound.replace('\\', "/");
@@ -599,7 +597,8 @@ const STOP_SOUND='__STOP_SOUND__';
 const ASK_SOUND='__ASK_SOUND__';
 const TOAST=__TOAST__;
 const TOAST_PS1='__TOAST_PS1__';
-// FUTURE_HAPPY: const HAPPY=__HAPPY__; const HP='__HAPPY_PATH__';
+const HAPPY=__HAPPY__;
+const HP='__HAPPY_PATH__';
 const GCHAT='__GCHAT__';
 const ev=process.argv[2]||'stop';
 const tm=process.argv[3]||'Claude Code';
@@ -633,7 +632,7 @@ process.stdin.on('end',()=>{
   if(snd)try{cp.execSync('powershell.exe -WindowStyle Hidden -c "try{(New-Object Media.SoundPlayer \''+snd+'\').PlaySync()}catch{}"',{timeout:5000});}catch{}
   // Toast — must use exec() (not spawn detached) to inherit desktop session for WinRT toast
   if(TOAST&&TOAST_PS1)cp.exec('powershell.exe -NoProfile -ExecutionPolicy Bypass -File "'+TOAST_PS1+'" -Title "'+title.replace(/"/g,'')+'" -Message "'+tm.replace(/"/g,'')+'"',{timeout:10000},()=>{});
-  // FUTURE_HAPPY: if(HAPPY&&HP)try{cp.execSync('"'+HP+'" notify -t "'+title.replace(/"/g,'')+'" -p "'+msg+'"',{timeout:10000,stdio:'ignore'});}catch{}
+  if(HAPPY&&HP){try{const qtext=j.tool_input&&j.tool_input.question?j.tool_input.question:(j.last_assistant_message||'');const proj=j.cwd?j.cwd.replace(/\\\\/g,'/').split('/').filter(Boolean).pop():'';const notifTitle=(proj?'\u2753 '+proj:'\u2753 Claude Code');const base=ev==='stop'?'Task finished':(ev==='notification'?'Needs attention':(ev==='permission_request'?'Needs permission':''));const notifMsg=qtext?(qtext.length>200?qtext.substring(0,197)+'...':qtext):(base+(proj?' - '+proj:''));cp.execSync('"'+HP+'" notify -t "'+notifTitle.replace(/"/g,'')+'" -p "'+notifMsg.replace(/"/g,'')+'"',{timeout:10000,stdio:'ignore'});}catch{}}
   // GChat
   if(GCHAT){
     const iu={stop:'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/2705.png',pre_tool_use:'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/2753.png',notification:'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f514.png',permission_request:'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f512.png'};
@@ -652,9 +651,15 @@ setTimeout(()=>process.exit(0),15000);
         .replace("__TOAST_PS1__", &toast_ps1)
         .replace("__GCHAT__", &wh);
 
-    // FUTURE_HAPPY: also call:
-    //   .replace("__HAPPY__", if happy { "true" } else { "false" })
-    //   .replace("__HAPPY_PATH__", &happy_path)
+    #[cfg(feature = "future_happy")]
+    let content = content
+        .replace("__HAPPY__", if happy { "true" } else { "false" })
+        .replace("__HAPPY_PATH__", happy_path);
+
+    #[cfg(not(feature = "future_happy"))]
+    let content = content
+        .replace("__HAPPY__", "false")
+        .replace("__HAPPY_PATH__", "");
 
     let wrapper_path = script_dir.join("claude-notify-hook.cjs");
     let _ = fs::write(&wrapper_path, content);
@@ -756,6 +761,8 @@ fn save_config(args: SaveConfigArgs) -> Value {
         }
 
         // Generate the combined hook script once (embeds all config)
+        #[cfg(feature = "future_happy")]
+        let happy_path_fwd = get_happy_path().to_string_lossy().replace('\\', "/");
         generate_hook_script(
             &args.sound_path,
             &args.ask_sound_path,
@@ -763,6 +770,8 @@ fn save_config(args: SaveConfigArgs) -> Value {
             args.toast_enabled,
             #[cfg(feature = "future_happy")]
             args.happy_enabled,
+            #[cfg(feature = "future_happy")]
+            &happy_path_fwd,
         );
 
         #[cfg(feature = "future_happy")]
